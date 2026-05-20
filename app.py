@@ -30,7 +30,7 @@ h1, h2, h3, h4 {
 }
 
 .stMetric {
-    background-color: #1c1f26;
+    background-color: #c1d1f7;
     padding: 15px;
     border-radius: 15px;
     text-align: center;
