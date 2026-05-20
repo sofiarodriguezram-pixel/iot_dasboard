@@ -94,7 +94,7 @@ time_range = st.sidebar.selectbox(
 
 url = "https://us-east-1-1.aws.cloud2.influxdata.com"
 
-token = "token: JoKdx3OFaBCFPmYQgiVWE8hjrtJ0lDkjwWZzT9djWJlvg98rtTgF9iRgKhQtAkKIA2UQsU6zsrJlv1BH6lfsVw=="
+token = "JoKdx3OFaBCFPmYQgiVWE8hjrtJ0lDkjwWZzT9djWJlvg98rtTgF9iRgKhQtAkKIA2UQsU6zsrJlv1BH6lfsVw=="
 
 org = "miguelcmo"
 
