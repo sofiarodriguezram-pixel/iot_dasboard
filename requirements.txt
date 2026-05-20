@@ -1,4 +1,5 @@
 streamlit
-influxdb-client
 pandas
 plotly
+influxdb-client
+numpy
