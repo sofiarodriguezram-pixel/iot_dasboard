@@ -1,139 +1,271 @@
 import streamlit as st
-from influxdb_client import InfluxDBClient
 import pandas as pd
 import plotly.express as px
+import numpy as np
 
-# ---------------------------
-# CONFIG
-# ---------------------------
-url = "https://us-east-1-1.aws.cloud2.influxdata.com"
-token = "qmIm-E2T0rvijqU6fMVixi1KspQSLRunXBgqfslRFJh2bYHWNI05eT0enTVAG32RBCp_5Y5a4UaqgetuTjjvHg=="
-org = "miguelcmo"
-bucket = "iot_telemetry_data"
+from influxdb_client import InfluxDBClient
 
-# ---------------------------
-# STREAMLIT UI
-# ---------------------------
-st.set_page_config(page_title="IoT Dashboard", layout="wide")
+# --------------------------------
+# CONFIGURACIÓN DE LA PÁGINA
+# --------------------------------
 
-st.title("🌡️ IoT Telemetry Dashboard")
-st.markdown("Monitoreo de temperatura y humedad en tiempo real")
-
-# Sidebar
-st.sidebar.header("Configuración")
-
-time_range = st.sidebar.selectbox(
-    "Rango de tiempo",
-    ["-1h", "-6h", "-12h", "-24h", "-7d"],
-    index=3
+st.set_page_config(
+    page_title="Wellness Pod",
+    layout="wide"
 )
 
-refresh = st.sidebar.slider("Auto-refresh (segundos)", 0, 60, 10)
+# --------------------------------
+# ESTILOS
+# --------------------------------
 
-# ---------------------------
-# DATA FUNCTION
-# ---------------------------
-@st.cache_data(ttl=10)
-def load_data(time_range):
-    client = InfluxDBClient(url=url, token=token, org=org)
-    query_api = client.query_api()
+st.markdown("""
+<style>
+body {
+    background-color: #0e1117;
+    color: white;
+}
 
-    query = f'''
-    from(bucket: "{bucket}")
-      |> range(start: {time_range})
-      |> filter(fn: (r) => r["_field"] == "temperature" or r["_field"] == "humidity")
-      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
-      |> keep(columns: ["_time", "temperature", "humidity"])
-    '''
+.metric-container {
+    background-color: #1c1f26;
+    padding: 10px;
+    border-radius: 10px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    result = query_api.query_data_frame(query)
+# --------------------------------
+# HEADER
+# --------------------------------
 
-    if isinstance(result, list):
-        df = pd.concat(result)
+st.title("🌿 Wellness Pod Dashboard")
+st.subheader("Monitoreo ambiental y movimiento en tiempo real")
+
+st.markdown("---")
+
+# --------------------------------
+# CONEXIÓN INFLUXDB
+# --------------------------------
+
+url = "https://us-east-1-1.aws.cloud2.influxdata.com"
+
+token = "PEGA_AQUI_EL_TOKEN"
+
+org = "miguelcmo"
+
+bucket = "iot_telemetry_data"
+
+client = InfluxDBClient(
+    url=url,
+    token=token,
+    org=org
+)
+
+query_api = client.query_api()
+
+# --------------------------------
+# CONSULTA TEMPERATURA
+# --------------------------------
+
+temp_query = f'''
+from(bucket: "{bucket}")
+  |> range(start: -1h)
+  |> filter(fn: (r) => r._measurement == "environment")
+  |> filter(fn: (r) => r._field == "temperature")
+'''
+
+temp_df = query_api.query_data_frame(temp_query)
+
+# --------------------------------
+# CONSULTA HUMEDAD
+# --------------------------------
+
+humidity_query = f'''
+from(bucket: "{bucket}")
+  |> range(start: -1h)
+  |> filter(fn: (r) => r._measurement == "environment")
+  |> filter(fn: (r) => r._field == "humidity")
+'''
+
+humidity_df = query_api.query_data_frame(humidity_query)
+
+# --------------------------------
+# CONSULTA ACELERACIÓN
+# --------------------------------
+
+accel_query = f'''
+from(bucket: "{bucket}")
+  |> range(start: -1h)
+  |> filter(fn: (r) => r._measurement == "mpu6050")
+  |> filter(fn: (r) =>
+      r._field == "accel_x" or
+      r._field == "accel_y" or
+      r._field == "accel_z"
+  )
+'''
+
+accel_df = query_api.query_data_frame(accel_query)
+
+# --------------------------------
+# OBTENER VALORES ACTUALES
+# --------------------------------
+
+latest_temp = temp_df["_value"].iloc[-1] if not temp_df.empty else 0
+
+latest_humidity = humidity_df["_value"].iloc[-1] if not humidity_df.empty else 0
+
+# --------------------------------
+# ESTADO DE MOVIMIENTO
+# --------------------------------
+
+movement_state = "Estable"
+
+if not accel_df.empty:
+    avg_accel = accel_df["_value"].mean()
+
+    if avg_accel > 1.5:
+        movement_state = "Movimiento Alto"
     else:
-        df = result
+        movement_state = "Movimiento Bajo"
 
-    if df.empty:
-        return df
+# --------------------------------
+# NIVEL DE CONFORT
+# --------------------------------
 
-    df["_time"] = pd.to_datetime(df["_time"])
-    df = df.sort_values("_time")
+comfort = "Óptimo"
 
-    return df
+if latest_temp > 30:
+    comfort = "Caluroso"
 
-# ---------------------------
-# LOAD DATA
-# ---------------------------
-df = load_data(time_range)
+elif latest_temp < 18:
+    comfort = "Frío"
 
-# ---------------------------
-# METRICS
-# ---------------------------
-if not df.empty:
-    col1, col2, col3, col4 = st.columns(4)
+# --------------------------------
+# MÉTRICAS
+# --------------------------------
 
-    col1.metric("🌡️ Temp actual", f"{df['temperature'].iloc[-1]:.2f} °C")
-    col2.metric("💧 Humedad actual", f"{df['humidity'].iloc[-1]:.2f} %")
-    col3.metric("📊 Temp promedio", f"{df['temperature'].mean():.2f} °C")
-    col4.metric("📊 Humedad promedio", f"{df['humidity'].mean():.2f} %")
+col1, col2, col3, col4 = st.columns(4)
 
-# ---------------------------
-# CHARTS
-# ---------------------------
-if not df.empty:
+col1.metric(
+    "🌡 Temperatura",
+    f"{latest_temp:.2f} °C"
+)
 
-    st.subheader("📈 Serie de tiempo")
+col2.metric(
+    "💧 Humedad",
+    f"{latest_humidity:.2f} %"
+)
 
-    fig = px.line(
-        df,
-        x="_time",
-        y=["temperature", "humidity"],
-        title="Temperature & Humidity"
-    )
+col3.metric(
+    "📳 Movimiento",
+    movement_state
+)
 
-    st.plotly_chart(fig, use_container_width=True)
+col4.metric(
+    "🧘 Confort",
+    comfort
+)
 
-    # ---------------------------
-    # RESAMPLING
-    # ---------------------------
-    st.subheader("⏱️ Promedio cada 10 minutos")
+st.markdown("---")
 
-    #df_resampled = df.set_index("_time").resample("10min").mean().dropna()
-    # Asegurar tipos numéricos
-    df["temperature"] = pd.to_numeric(df["temperature"], errors="coerce")
-    df["humidity"] = pd.to_numeric(df["humidity"], errors="coerce")
-    
-    # Asegurar datetime index
-    df["_time"] = pd.to_datetime(df["_time"])
-    
-    # Resample SOLO columnas numéricas
-    df_resampled = (
-        df.set_index("_time")[["temperature", "humidity"]]
-        .resample("10min")
-        .mean()
-        .dropna()
-    )
+# --------------------------------
+# ALERTAS
+# --------------------------------
 
-    fig2 = px.line(
-        df_resampled,
-        x=df_resampled.index,
-        y=["temperature", "humidity"],
-        title="Smoothed Data (10min avg)"
-    )
+if latest_temp > 30:
+    st.error("⚠ Alta temperatura detectada")
 
-    st.plotly_chart(fig2, use_container_width=True)
-
-    # ---------------------------
-    # RAW DATA
-    # ---------------------------
-    st.subheader("📋 Datos crudos")
-    st.dataframe(df.tail(50))
+elif latest_temp < 18:
+    st.warning("⚠ Temperatura baja")
 
 else:
-    st.warning("No hay datos disponibles en este rango de tiempo")
+    st.success("✅ Temperatura estable")
 
-# ---------------------------
-# AUTO REFRESH
-# ---------------------------
-if refresh > 0:
-    st.rerun()
+# --------------------------------
+# GRÁFICA TEMPERATURA
+# --------------------------------
+
+if not temp_df.empty:
+
+    fig_temp = px.line(
+        temp_df,
+        x="_time",
+        y="_value",
+        title="Temperatura en tiempo real"
+    )
+
+    st.plotly_chart(
+        fig_temp,
+        use_container_width=True
+    )
+
+# --------------------------------
+# GRÁFICA HUMEDAD
+# --------------------------------
+
+if not humidity_df.empty:
+
+    fig_humidity = px.line(
+        humidity_df,
+        x="_time",
+        y="_value",
+        title="Humedad en tiempo real"
+    )
+
+    st.plotly_chart(
+        fig_humidity,
+        use_container_width=True
+    )
+
+# --------------------------------
+# GRÁFICA ACELERACIÓN
+# --------------------------------
+
+if not accel_df.empty:
+
+    fig_accel = px.line(
+        accel_df,
+        x="_time",
+        y="_value",
+        color="_field",
+        title="Aceleración MPU6050"
+    )
+
+    st.plotly_chart(
+        fig_accel,
+        use_container_width=True
+    )
+
+# --------------------------------
+# MAGNITUD DEL MOVIMIENTO
+# --------------------------------
+
+if not accel_df.empty:
+
+    accel_values = accel_df["_value"]
+
+    magnitude = np.sqrt(accel_values**2)
+
+    magnitude_df = pd.DataFrame({
+        "time": accel_df["_time"],
+        "magnitude": magnitude
+    })
+
+    fig_mag = px.area(
+        magnitude_df,
+        x="time",
+        y="magnitude",
+        title="Magnitud del movimiento"
+    )
+
+    st.plotly_chart(
+        fig_mag,
+        use_container_width=True
+    )
+
+# --------------------------------
+# FOOTER
+# --------------------------------
+
+st.markdown("---")
+
+st.caption("Proyecto IoT - Diseño Interactivo")
