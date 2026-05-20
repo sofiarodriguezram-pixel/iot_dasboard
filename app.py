@@ -2,63 +2,133 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import numpy as np
-
 from influxdb_client import InfluxDBClient
 
-# =====================================================
-# CONFIGURACIÓN GENERAL
-# =====================================================
+# ======================================================
+# CONFIGURACIÓN DE LA PÁGINA
+# ======================================================
 
 st.set_page_config(
-    page_title="Wellness Pod",
+    page_title="Wellness Pod Dashboard",
+    page_icon="🌿",
     layout="wide"
 )
 
-# =====================================================
+# ======================================================
 # ESTILOS PERSONALIZADOS
-# =====================================================
+# ======================================================
 
 st.markdown("""
 <style>
 
-.main {
-    background-color: #0e1117;
+/* Fondo general */
+.stApp {
+    background-color: #f5f7fb;
 }
 
-h1, h2, h3, h4 {
-    color: white;
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid #e5e7eb;
 }
 
-.stMetric {
-    background-color: #c1d1f7;
-    padding: 15px;
+/* Títulos */
+h1, h2, h3 {
+    color: #111827;
+}
+
+/* Texto */
+p, label, div {
+    color: #374151;
+}
+
+/* Cards métricas */
+[data-testid="metric-container"] {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0px 2px 8px rgba(0,0,0,0.04);
+}
+
+/* Alertas */
+.stAlert {
     border-radius: 15px;
-    text-align: center;
+}
+
+/* Tablas */
+[data-testid="stDataFrame"] {
+    background-color: white;
+    border-radius: 15px;
+    border: 1px solid #e5e7eb;
+}
+
+/* Botones */
+.stButton > button {
+    background-color: #22c55e;
+    color: white;
+    border-radius: 10px;
+    border: none;
+}
+
+/* Sidebar títulos */
+.sidebar-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #111827;
+}
+
+/* Caja estado ambiente */
+.status-box {
+    background-color: #ecfdf5;
+    border: 1px solid #bbf7d0;
+    padding: 20px;
+    border-radius: 15px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# =====================================================
+# ======================================================
 # HEADER
-# =====================================================
+# ======================================================
 
-st.title("🌿 Wellness Pod Dashboard")
+col_header1, col_header2 = st.columns([4,1])
 
-st.subheader(
-    "Sistema IoT para monitoreo ambiental y movimiento en tiempo real"
-)
+with col_header1:
+    st.title("🌿 Wellness Pod Dashboard")
+    st.markdown(
+        "### Monitoreo ambiental y movimiento en tiempo real"
+    )
+
+with col_header2:
+    st.markdown("""
+    <div style="
+        background:white;
+        padding:15px;
+        border-radius:15px;
+        border:1px solid #e5e7eb;
+        text-align:center;
+        margin-top:20px;
+    ">
+        <p style="margin:0;font-size:14px;">Estado</p>
+        <h4 style="color:#22c55e;">● En vivo</h4>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
 
-# =====================================================
-# PANEL INTERACTIVO
-# =====================================================
+# ======================================================
+# SIDEBAR
+# ======================================================
 
-st.sidebar.title("⚙ Panel de Control")
+st.sidebar.markdown(
+    '<p class="sidebar-title">⚙ Panel de Control</p>',
+    unsafe_allow_html=True
+)
 
 mode = st.sidebar.selectbox(
-    "Selecciona el modo del espacio",
+    "Modo del espacio",
     [
         "Relajación",
         "Trabajo",
@@ -67,19 +137,14 @@ mode = st.sidebar.selectbox(
 )
 
 ideal_temp = st.sidebar.slider(
-    "Temperatura ideal",
+    "Temperatura ideal (°C)",
     15,
     35,
     24
 )
 
-alerts = st.sidebar.toggle(
-    "Activar alertas",
-    value=True
-)
-
 time_range = st.sidebar.selectbox(
-    "Rango temporal",
+    "Rango de tiempo",
     [
         "-30m",
         "-1h",
@@ -88,13 +153,20 @@ time_range = st.sidebar.selectbox(
     ]
 )
 
-# =====================================================
-# CONEXIÓN A INFLUXDB
-# =====================================================
+alerts = st.sidebar.toggle(
+    "Activar alertas",
+    value=True
+)
+
+st.sidebar.markdown("---")
+
+# ======================================================
+# CONEXIÓN INFLUXDB
+# ======================================================
 
 url = "https://us-east-1-1.aws.cloud2.influxdata.com"
 
-token = "JoKdx3OFaBCFPmYQgiVWE8hjrtJ0lDkjwWZzT9djWJlvg98rtTgF9iRgKhQtAkKIA2UQsU6zsrJlv1BH6lfsVw=="
+token = "token: JoKdx3OFaBCFPmYQgiVWE8hjrtJ0lDkjwWZzT9djWJlvg98rtTgF9iRgKhQtAkKIA2UQsU6zsrJlv1BH6lfsVw=="
 
 org = "miguelcmo"
 
@@ -108,9 +180,9 @@ client = InfluxDBClient(
 
 query_api = client.query_api()
 
-# =====================================================
+# ======================================================
 # CONSULTA TEMPERATURA
-# =====================================================
+# ======================================================
 
 temp_query = f'''
 from(bucket: "{bucket}")
@@ -121,9 +193,9 @@ from(bucket: "{bucket}")
 
 temp_df = query_api.query_data_frame(temp_query)
 
-# =====================================================
+# ======================================================
 # CONSULTA HUMEDAD
-# =====================================================
+# ======================================================
 
 humidity_query = f'''
 from(bucket: "{bucket}")
@@ -134,9 +206,9 @@ from(bucket: "{bucket}")
 
 humidity_df = query_api.query_data_frame(humidity_query)
 
-# =====================================================
-# CONSULTA ACELERACIÓN
-# =====================================================
+# ======================================================
+# CONSULTA MPU6050
+# ======================================================
 
 accel_query = f'''
 from(bucket: "{bucket}")
@@ -151,9 +223,9 @@ from(bucket: "{bucket}")
 
 accel_df = query_api.query_data_frame(accel_query)
 
-# =====================================================
-# OBTENER VALORES ACTUALES
-# =====================================================
+# ======================================================
+# VALORES ACTUALES
+# ======================================================
 
 latest_temp = (
     temp_df["_value"].iloc[-1]
@@ -167,11 +239,7 @@ latest_humidity = (
     else 0
 )
 
-# =====================================================
-# ESTADO DEL MOVIMIENTO
-# =====================================================
-
-movement_state = "Estable"
+movement_state = "Movimiento Bajo"
 
 avg_accel = 0
 
@@ -182,45 +250,21 @@ if not accel_df.empty:
     if avg_accel > 1.5:
         movement_state = "Movimiento Alto"
 
-    else:
-        movement_state = "Movimiento Bajo"
+# ======================================================
+# ESTADO GENERAL
+# ======================================================
 
-# =====================================================
-# INTERPRETACIÓN SEGÚN MODO
-# =====================================================
+comfort = "Espacio óptimo"
 
-comfort = "Óptimo"
+if latest_temp > ideal_temp + 5:
+    comfort = "Espacio caluroso"
 
-if mode == "Relajación":
+elif latest_temp < ideal_temp - 5:
+    comfort = "Espacio frío"
 
-    if latest_temp > ideal_temp + 3:
-        comfort = "Ambiente caluroso"
-
-    elif latest_temp < ideal_temp - 3:
-        comfort = "Ambiente frío"
-
-    else:
-        comfort = "Ambiente relajante"
-
-elif mode == "Trabajo":
-
-    if latest_temp > ideal_temp + 2:
-        comfort = "Posible fatiga térmica"
-
-    else:
-        comfort = "Ambiente productivo"
-
-elif mode == "Concentración":
-
-    if movement_state == "Movimiento Alto":
-        comfort = "Espacio inestable"
-
-    else:
-        comfort = "Espacio óptimo"
-
-# =====================================================
-# MÉTRICAS PRINCIPALES
-# =====================================================
+# ======================================================
+# MÉTRICAS
+# ======================================================
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -244,11 +288,11 @@ col4.metric(
     comfort
 )
 
-st.markdown("---")
+st.markdown("")
 
-# =====================================================
+# ======================================================
 # ALERTAS
-# =====================================================
+# ======================================================
 
 if alerts:
 
@@ -267,129 +311,134 @@ if alerts:
     else:
 
         st.success(
-            "✅ Condiciones estables"
+            "✅ Ambiente estable"
         )
 
-# =====================================================
-# ESTADO DEL AMBIENTE
-# =====================================================
+# ======================================================
+# GRÁFICAS
+# ======================================================
 
-st.sidebar.subheader("🧠 Estado del ambiente")
+graph_col1, graph_col2 = st.columns(2)
 
-if comfort == "Ambiente relajante":
+# TEMPERATURA
+with graph_col1:
 
-    st.sidebar.success(
-        "Nivel de bienestar alto"
-    )
+    if not temp_df.empty:
 
-elif comfort == "Espacio inestable":
+        fig_temp = px.line(
+            temp_df,
+            x="_time",
+            y="_value",
+            title="Temperatura (°C)"
+        )
 
-    st.sidebar.error(
-        "Nivel de bienestar bajo"
-    )
+        fig_temp.update_layout(
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            font_color="#111827"
+        )
 
-else:
+        st.plotly_chart(
+            fig_temp,
+            use_container_width=True
+        )
 
-    st.sidebar.info(
-        "Estado moderado"
-    )
+# HUMEDAD
+with graph_col2:
 
-# =====================================================
-# GRÁFICA TEMPERATURA
-# =====================================================
+    if not humidity_df.empty:
+
+        fig_humidity = px.line(
+            humidity_df,
+            x="_time",
+            y="_value",
+            title="Humedad (%)"
+        )
+
+        fig_humidity.update_layout(
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            font_color="#111827"
+        )
+
+        st.plotly_chart(
+            fig_humidity,
+            use_container_width=True
+        )
+
+# ======================================================
+# SEGUNDA FILA
+# ======================================================
+
+graph_col3, graph_col4 = st.columns(2)
+
+# ACELERACIÓN
+with graph_col3:
+
+    if not accel_df.empty:
+
+        fig_accel = px.line(
+            accel_df,
+            x="_time",
+            y="_value",
+            color="_field",
+            title="Aceleración MPU6050"
+        )
+
+        fig_accel.update_layout(
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            font_color="#111827"
+        )
+
+        st.plotly_chart(
+            fig_accel,
+            use_container_width=True
+        )
+
+# MAGNITUD
+with graph_col4:
+
+    if not accel_df.empty:
+
+        magnitude = np.sqrt(
+            accel_df["_value"]**2
+        )
+
+        magnitude_df = pd.DataFrame({
+            "time": accel_df["_time"],
+            "magnitude": magnitude
+        })
+
+        fig_mag = px.area(
+            magnitude_df,
+            x="time",
+            y="magnitude",
+            title="Magnitud del movimiento"
+        )
+
+        fig_mag.update_layout(
+            paper_bgcolor="white",
+            plot_bgcolor="white",
+            font_color="#111827"
+        )
+
+        st.plotly_chart(
+            fig_mag,
+            use_container_width=True
+        )
+
+# ======================================================
+# TABLA
+# ======================================================
+
+st.markdown("## 📋 Datos recientes")
 
 if not temp_df.empty:
 
-    fig_temp = px.line(
-        temp_df,
-        x="_time",
-        y="_value",
-        title="Temperatura en tiempo real"
-    )
-
-    st.plotly_chart(
-        fig_temp,
-        use_container_width=True
-    )
-
-# =====================================================
-# GRÁFICA HUMEDAD
-# =====================================================
-
-if not humidity_df.empty:
-
-    fig_humidity = px.line(
-        humidity_df,
-        x="_time",
-        y="_value",
-        title="Humedad en tiempo real"
-    )
-
-    st.plotly_chart(
-        fig_humidity,
-        use_container_width=True
-    )
-
-# =====================================================
-# GRÁFICA ACELERACIÓN
-# =====================================================
-
-if not accel_df.empty:
-
-    fig_accel = px.line(
-        accel_df,
-        x="_time",
-        y="_value",
-        color="_field",
-        title="Movimiento y aceleración MPU6050"
-    )
-
-    st.plotly_chart(
-        fig_accel,
-        use_container_width=True
-    )
-
-# =====================================================
-# MAGNITUD DEL MOVIMIENTO
-# =====================================================
-
-if not accel_df.empty:
-
-    magnitude = np.sqrt(
-        accel_df["_value"]**2
-    )
-
-    magnitude_df = pd.DataFrame({
-        "time": accel_df["_time"],
-        "magnitude": magnitude
-    })
-
-    fig_mag = px.area(
-        magnitude_df,
-        x="time",
-        y="magnitude",
-        title="Magnitud del movimiento"
-    )
-
-    st.plotly_chart(
-        fig_mag,
-        use_container_width=True
-    )
-
-# =====================================================
-# TABLA DE DATOS
-# =====================================================
-
-st.markdown("---")
-
-st.subheader("📋 Datos recientes")
-
-if not temp_df.empty:
-
-    recent_data = temp_df[[
-        "_time",
-        "_value"
-    ]].tail(10)
+    recent_data = temp_df[
+        ["_time", "_value"]
+    ].tail(10)
 
     recent_data.columns = [
         "Tiempo",
@@ -401,12 +450,36 @@ if not temp_df.empty:
         use_container_width=True
     )
 
-# =====================================================
+# ======================================================
+# SIDEBAR ESTADO
+# ======================================================
+
+st.sidebar.markdown("""
+<div class="status-box">
+    <h4 style="color:#16a34a;">
+        🌿 Estado del ambiente
+    </h4>
+
+    <p>
+        El sistema detecta un ambiente estable y adecuado
+        para actividades de concentración y bienestar.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+# ======================================================
 # FOOTER
-# =====================================================
+# ======================================================
 
 st.markdown("---")
 
-st.caption(
-    "Proyecto Final IoT - Diseño Interactivo"
+st.markdown(
+    """
+    <center>
+    <p style="color:#6b7280;">
+        Proyecto IoT · Diseño Interactivo · Wellness Pod
+    </p>
+    </center>
+    """,
+    unsafe_allow_html=True
 )
