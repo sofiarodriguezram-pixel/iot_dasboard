@@ -48,7 +48,7 @@ st.markdown("---")
 
 url = "https://us-east-1-1.aws.cloud2.influxdata.com"
 
-token = "PEGA_AQUI_EL_TOKEN"
+token = "JoKdx3OFaBCFPmYQgiVWE8hjrtJ0lDkjwWZzT9djWJlvg98rtTgF9iRgKhQtAkKIA2UQsU6zsrJlv1BH6lfsVw=="
 
 org = "miguelcmo"
 
